@@ -517,6 +517,257 @@ func TestDefaultInstance(t *testing.T) {
 	}
 }
 
+// setupDefaultForTest redirects the package-level default instance to a
+// buffer and enables all levels so we can capture output. It returns the
+// buffer and a cleanup function that restores the original state.
+func setupDefaultForTest() (*bytes.Buffer, func()) {
+	d := Default()
+	origWriter := d.writer
+	origLevel := d.level
+	origTheme := d.theme
+	origPrefix := d.prefix
+	origHasPrefix := d.hasPrefix
+	origColor := d.colorEnabled
+	origPrefixColor := d.prefixColor
+	origMessageColor := d.messageColor
+
+	var buf bytes.Buffer
+	d.writer = &buf
+	d.level = LevelTrace
+	d.colorEnabled = false
+	d.theme = ThemeDefault
+	d.prefix = defaultPrefix
+	d.hasPrefix = true
+	d.prefixColor = ColorDefault
+	d.messageColor = ColorDefault
+
+	cleanup := func() {
+		d.writer = origWriter
+		d.level = origLevel
+		d.theme = origTheme
+		d.prefix = origPrefix
+		d.hasPrefix = origHasPrefix
+		d.colorEnabled = origColor
+		d.prefixColor = origPrefixColor
+		d.messageColor = origMessageColor
+	}
+	return &buf, cleanup
+}
+
+func TestPackageLevelSetLevelAndOutput(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	SetLevel(LevelWarn)
+	Info("hidden")
+	if buf.Len() != 0 {
+		t.Fatalf("info should be hidden at warn level, got %q", buf.String())
+	}
+	Warn("visible warn")
+	if !strings.Contains(buf.String(), "visible warn") {
+		t.Fatalf("expected warn output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelInfo(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Info("pkg info")
+	if !strings.Contains(buf.String(), "pkg info") {
+		t.Fatalf("expected 'pkg info', got %q", buf.String())
+	}
+}
+
+func TestPackageLevelInfof(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Infof("count: %d", 42)
+	if !strings.Contains(buf.String(), "count: 42") {
+		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelDebug(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Debug("pkg debug")
+	if !strings.Contains(buf.String(), "pkg debug") {
+		t.Fatalf("expected 'pkg debug', got %q", buf.String())
+	}
+}
+
+func TestPackageLevelDebugf(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Debugf("val: %d", 7)
+	if !strings.Contains(buf.String(), "val: 7") {
+		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelTrace(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Trace("pkg trace")
+	if !strings.Contains(buf.String(), "pkg trace") {
+		t.Fatalf("expected 'pkg trace', got %q", buf.String())
+	}
+}
+
+func TestPackageLevelTracef(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Tracef("t: %s", "x")
+	if !strings.Contains(buf.String(), "t: x") {
+		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelWarn(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Warn("pkg warn")
+	if !strings.Contains(buf.String(), "pkg warn") {
+		t.Fatalf("expected 'pkg warn', got %q", buf.String())
+	}
+}
+
+func TestPackageLevelWarnf(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Warnf("w: %d", 1)
+	if !strings.Contains(buf.String(), "w: 1") {
+		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelError(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Error("pkg error")
+	if !strings.Contains(buf.String(), "pkg error") {
+		t.Fatalf("expected 'pkg error', got %q", buf.String())
+	}
+}
+
+func TestPackageLevelErrorf(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Errorf("e: %s", "fail")
+	if !strings.Contains(buf.String(), "e: fail") {
+		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelSuccess(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Success("pkg success")
+	if !strings.Contains(buf.String(), "pkg success") {
+		t.Fatalf("expected 'pkg success', got %q", buf.String())
+	}
+}
+
+func TestPackageLevelSuccessf(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Successf("done: %d", 3)
+	if !strings.Contains(buf.String(), "done: 3") {
+		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelSetPrefix(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	SetPrefix("->")
+	Info("test")
+	if !strings.HasPrefix(buf.String(), "-> ") {
+		t.Fatalf("expected '-> ' prefix, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelClearPrefix(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	ClearPrefix()
+	Info("no prefix")
+	got := strings.TrimSpace(buf.String())
+	if got != "no prefix" {
+		t.Fatalf("expected 'no prefix' without prefix, got %q", got)
+	}
+}
+
+func TestPackageLevelSetTheme(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Default().SetColorEnabled(true)
+	SetTheme(ThemeDracula)
+	Info("themed")
+	// Dracula info color is #F8F8F2 = RGB(248,248,242)
+	if !strings.Contains(buf.String(), "38;2;248;248;242") {
+		t.Fatalf("expected Dracula info color, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelSetPrefixColor(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Default().SetColorEnabled(true)
+	SetPrefixColor(ColorRed)
+	Info("test")
+	if !strings.Contains(buf.String(), "\033[31m") {
+		t.Fatalf("expected red ANSI code for prefix, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelSetMessageColor(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	Default().SetColorEnabled(true)
+	SetMessageColor(ColorGreen)
+	Info("test")
+	if !strings.Contains(buf.String(), "\033[32mtest\033[0m") {
+		t.Fatalf("expected green ANSI for message, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelSetColorEnabled(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	SetColorEnabled(true)
+	SetTheme(ThemeDracula)
+	Info("colored")
+	if !strings.Contains(buf.String(), "\033[") {
+		t.Fatalf("expected ANSI codes when color enabled, got %q", buf.String())
+	}
+
+	buf.Reset()
+	SetColorEnabled(false)
+	Info("plain")
+	if strings.Contains(buf.String(), "\033[") {
+		t.Fatalf("expected no ANSI codes when color disabled, got %q", buf.String())
+	}
+}
+
 // --- Theme existence tests (ensure all themes are defined and have non-empty names) ---
 
 func TestAllThemesHaveNames(t *testing.T) {
@@ -582,6 +833,23 @@ func TestThemeByNameNotFound(t *testing.T) {
 	_, ok := ThemeByName("nonexistent")
 	if ok {
 		t.Fatal("expected no match for 'nonexistent'")
+	}
+}
+
+// --- colorForLevel default branch ---
+
+func TestColorForLevelUnknownFallsBackToInfo(t *testing.T) {
+	o, buf := newTestOutput()
+	o.SetColorEnabled(true)
+	o.SetTheme(ThemeDracula)
+	// Call print directly with an invalid level value to hit the default branch.
+	// Level(99) is above Silent so it won't be filtered, and colorForLevel will
+	// hit the default case.
+	o.print(Level(99), "fallback", false)
+	got := buf.String()
+	// Should use InfoColor from Dracula: #F8F8F2 = RGB(248,248,242)
+	if !strings.Contains(got, "38;2;248;248;242") {
+		t.Fatalf("expected Dracula info color as fallback, got %q", got)
 	}
 }
 

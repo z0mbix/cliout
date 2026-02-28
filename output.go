@@ -213,7 +213,7 @@ func (o *Output) print(level Level, msg string, isSuccess bool) {
 		line = msgColor.apply(msg, o.colorEnabled)
 	}
 
-	fmt.Fprintln(o.writer, line)
+	_, _ = fmt.Fprintln(o.writer, line)
 }
 
 // colorForLevel returns the theme color for a given output level.
