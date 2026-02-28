@@ -4,10 +4,14 @@
 // output. Demonstrates how levels, themes, prefixes, and format strings
 // work together in a practical scenario.
 //
-// Run: go run ./examples/real-world/
+// Run:
+//
+//	go run ./examples/real-world/
+//	go run ./examples/real-world/ -verbose
 package main
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -15,13 +19,13 @@ import (
 )
 
 func main() {
-	// Simulate a --verbose flag by setting the level to Debug
-	verbose := true
+	verbose := flag.Bool("verbose", false, "enable debug output")
+	flag.Parse()
 
 	cliout.SetTheme(cliout.ThemeCatppuccinoMocha)
 	cliout.SetPrefix("»")
 
-	if verbose {
+	if *verbose {
 		cliout.SetLevel(cliout.LevelDebug)
 	}
 
