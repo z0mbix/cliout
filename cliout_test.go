@@ -2,6 +2,7 @@ package cliout
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
@@ -933,5 +934,80 @@ func TestPackageLevelColorize(t *testing.T) {
 	// test environment, so just verify it contains the original text.
 	if !strings.Contains(got, "test") {
 		t.Fatalf("expected result to contain 'test', got %q", got)
+	}
+}
+
+// --- CLI_THEME environment variable tests ---
+
+func TestNewRespectsCliThemeEnv(t *testing.T) {
+	t.Setenv("CLI_THEME", "Dracula")
+
+	o := New()
+	if o.theme.Name != "Dracula" {
+		t.Fatalf("expected theme 'Dracula', got %q", o.theme.Name)
+	}
+}
+
+func TestNewCliThemeEnvCaseInsensitive(t *testing.T) {
+	t.Setenv("CLI_THEME", "tokyo night storm")
+
+	o := New()
+	if o.theme.Name != "Tokyo Night Storm" {
+		t.Fatalf("expected theme 'Tokyo Night Storm', got %q", o.theme.Name)
+	}
+}
+
+func TestNewCliThemeEnvUnknownFallsBackToDefault(t *testing.T) {
+	t.Setenv("CLI_THEME", "nonexistent-theme")
+
+	o := New()
+	if o.theme.Name != ThemeDefault.Name {
+		t.Fatalf("expected default theme, got %q", o.theme.Name)
+	}
+}
+
+func TestNewCliThemeEnvEmptyFallsBackToDefault(t *testing.T) {
+	t.Setenv("CLI_THEME", "")
+
+	o := New()
+	if o.theme.Name != ThemeDefault.Name {
+		t.Fatalf("expected default theme, got %q", o.theme.Name)
+	}
+}
+
+func TestNewCliThemeEnvUnsetUsesDefault(t *testing.T) {
+	t.Setenv("CLI_THEME", "")
+	os.Unsetenv("CLI_THEME") //nolint:errcheck // test cleanup handled by t.Setenv
+
+	o := New()
+	if o.theme.Name != ThemeDefault.Name {
+		t.Fatalf("expected default theme, got %q", o.theme.Name)
+	}
+}
+
+func TestNewCliThemeWithNoColorStillDisablesColor(t *testing.T) {
+	t.Setenv("CLI_THEME", "Dracula")
+	t.Setenv("NO_COLOR", "1")
+
+	o := New()
+	if o.theme.Name != "Dracula" {
+		t.Fatalf("expected theme 'Dracula', got %q", o.theme.Name)
+	}
+	if o.colorEnabled {
+		t.Fatal("expected color to be disabled when NO_COLOR is set")
+	}
+}
+
+func TestNewSetThemeOverridesCliThemeEnv(t *testing.T) {
+	t.Setenv("CLI_THEME", "Dracula")
+
+	o := New()
+	if o.theme.Name != "Dracula" {
+		t.Fatalf("expected initial theme 'Dracula', got %q", o.theme.Name)
+	}
+
+	o.SetTheme(ThemeNord)
+	if o.theme.Name != "Nord" {
+		t.Fatalf("expected theme 'Nord' after SetTheme, got %q", o.theme.Name)
 	}
 }

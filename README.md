@@ -14,7 +14,7 @@ A Go package for printing formatted, coloured output to the command line. Not a 
 - 32 built-in colour themes (Dracula, Nord, Monokai Pro, Catppuccino, Tokyo Night, and more)
 - Customisable prefix character and colours
 - True colour (24-bit RGB) and standard ANSI colour support
-- Respects [`NO_COLOR`](https://no-color.org/) and auto-detects TTY
+- Respects [`NO_COLOR`](https://no-color.org/) and `CLI_THEME` environment variables, auto-detects TTY
 - Format string variants (`Infof`, `Debugf`, etc.)
 - Zero external dependencies
 - Go 1.20+
@@ -241,6 +241,24 @@ You can also disable it programmatically:
 ```go
 cliout.SetColorEnabled(false)
 cliout.Info("plain text, no ANSI codes")
+```
+
+### `CLI_THEME` Environment Variable
+
+Users can set the `CLI_THEME` environment variable to select a theme across all tools that use cliout. The value is matched case-insensitively against the built-in theme names:
+
+```sh
+export CLI_THEME=dracula
+```
+
+Any tool using cliout will now default to Dracula without any code changes. The lookup happens in `New()`, so both the package-level default instance and any instances created with `cliout.New()` pick it up.
+
+If `CLI_THEME` is unset, empty, or doesn't match a built-in theme, the Default theme is used. `SetTheme()` still overrides `CLI_THEME` if the application needs to.
+
+`CLI_THEME` and `NO_COLOR` work together -- the theme is applied but colour output is disabled:
+
+```sh
+CLI_THEME=dracula NO_COLOR=1 ./mytool   # Dracula theme colours, but no ANSI codes emitted
 ```
 
 ### Multi-Colour Lines
@@ -578,6 +596,13 @@ All configuration methods are available on both `*Output` instances and as packa
 | Method | Description |
 |---|---|
 | `Colorize(text, Color)` | Wrap text with colour codes (respects colour-enabled setting) |
+
+### Environment Variables
+
+| Variable | Description |
+|---|---|
+| `NO_COLOR` | Disable all colour output when set (any value). See [no-color.org](https://no-color.org/) |
+| `CLI_THEME` | Set the default theme by name (case-insensitive). Ignored if unset, empty, or unrecognised |
 
 ## License
 

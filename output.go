@@ -24,15 +24,22 @@ type Output struct {
 //   - Writer: os.Stdout
 //   - Level: LevelInfo
 //   - Prefix: "»"
-//   - Theme: ThemeDefault
+//   - Theme: ThemeDefault (or the theme named by the CLI_THEME environment variable)
 //   - Color: auto-detected (disabled if NO_COLOR is set or stdout is not a TTY)
 func New() *Output {
+	theme := ThemeDefault
+	if name, ok := os.LookupEnv("CLI_THEME"); ok && name != "" {
+		if t, found := ThemeByName(name); found {
+			theme = t
+		}
+	}
+
 	o := &Output{
 		writer:       os.Stdout,
 		level:        LevelInfo,
 		prefix:       defaultPrefix,
 		hasPrefix:    true,
-		theme:        ThemeDefault,
+		theme:        theme,
 		colorEnabled: true,
 	}
 
