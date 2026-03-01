@@ -18,7 +18,8 @@ type Output struct {
 	messageColor Color
 	theme        Theme
 	colorEnabled bool
-	noColorEnv   bool // true when NO_COLOR was detected at construction time
+	noColorEnv   bool      // true when NO_COLOR was detected at construction time
+	exitFunc     func(int) // called by Fatal/Fatalf; defaults to os.Exit
 }
 
 // New creates an Output with sensible defaults:
@@ -51,6 +52,7 @@ func New() *Output {
 		hasPrefix:    hasPrefix,
 		theme:        theme,
 		colorEnabled: true,
+		exitFunc:     os.Exit,
 	}
 
 	// Respect NO_COLOR environment variable.
@@ -180,6 +182,18 @@ func (o *Output) Error(msg string) {
 // Errorf prints a formatted error-level message.
 func (o *Output) Errorf(format string, a ...any) {
 	o.print(LevelError, fmt.Sprintf(format, a...), false)
+}
+
+// Fatal prints an error-level message and then exits with code 1.
+func (o *Output) Fatal(msg string) {
+	o.print(LevelError, msg, false)
+	o.exitFunc(1)
+}
+
+// Fatalf prints a formatted error-level message and then exits with code 1.
+func (o *Output) Fatalf(format string, a ...any) {
+	o.print(LevelError, fmt.Sprintf(format, a...), false)
+	o.exitFunc(1)
 }
 
 // Success prints a success message at info level, using the theme's SuccessColor.

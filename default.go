@@ -104,6 +104,16 @@ func Errorf(format string, a ...any) {
 	defaultOutput.Errorf(format, a...)
 }
 
+// Fatal prints an error-level message and then exits with code 1.
+func Fatal(msg string) {
+	defaultOutput.Fatal(msg)
+}
+
+// Fatalf prints a formatted error-level message and then exits with code 1.
+func Fatalf(format string, a ...any) {
+	defaultOutput.Fatalf(format, a...)
+}
+
 // Success prints a success message at info level using the theme's SuccessColor.
 func Success(msg string) {
 	defaultOutput.Success(msg)

@@ -18,6 +18,7 @@ func newTestOutput() (*Output, *bytes.Buffer) {
 		hasPrefix:    true,
 		theme:        ThemeDefault,
 		colorEnabled: false, // disabled by default in tests for easy string matching
+		exitFunc:     os.Exit,
 	}
 	return o, &buf
 }
@@ -483,6 +484,83 @@ func TestErrorf(t *testing.T) {
 	}
 }
 
+// --- Fatal tests ---
+
+func TestFatalOutput(t *testing.T) {
+	o, buf := newTestOutput()
+	var exitCode int
+	o.exitFunc = func(code int) { exitCode = code }
+
+	o.Fatal("fatal error")
+	got := buf.String()
+	if !strings.Contains(got, "fatal error") {
+		t.Fatalf("expected fatal output, got %q", got)
+	}
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+}
+
+func TestFatalfOutput(t *testing.T) {
+	o, buf := newTestOutput()
+	var exitCode int
+	o.exitFunc = func(code int) { exitCode = code }
+
+	o.Fatalf("fatal: %s", "disk full")
+	got := buf.String()
+	if !strings.Contains(got, "fatal: disk full") {
+		t.Fatalf("expected formatted fatal output, got %q", got)
+	}
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+}
+
+func TestFatalUsesErrorColor(t *testing.T) {
+	o, buf := newTestOutput()
+	o.SetColorEnabled(true)
+	o.SetTheme(ThemeDracula)
+	o.exitFunc = func(code int) {}
+
+	o.Fatal("crash")
+	got := buf.String()
+	// Dracula error color is #FF5555 = RGB(255,85,85)
+	if !strings.Contains(got, "38;2;255;85;85") {
+		t.Fatalf("expected Dracula error color in fatal output, got %q", got)
+	}
+}
+
+func TestFatalSuppressedBySilent(t *testing.T) {
+	o, buf := newTestOutput()
+	var exitCode int
+	o.exitFunc = func(code int) { exitCode = code }
+	o.SetLevel(LevelSilent)
+
+	o.Fatal("should be hidden")
+	if buf.Len() != 0 {
+		t.Fatalf("fatal message should be suppressed at silent level, got %q", buf.String())
+	}
+	// Exit must still be called even when output is suppressed.
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1 even at silent level, got %d", exitCode)
+	}
+}
+
+func TestFatalfSuppressedBySilent(t *testing.T) {
+	o, buf := newTestOutput()
+	var exitCode int
+	o.exitFunc = func(code int) { exitCode = code }
+	o.SetLevel(LevelSilent)
+
+	o.Fatalf("should be hidden: %d", 42)
+	if buf.Len() != 0 {
+		t.Fatalf("fatalf message should be suppressed at silent level, got %q", buf.String())
+	}
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1 even at silent level, got %d", exitCode)
+	}
+}
+
 // --- Output ends with newline ---
 
 func TestOutputEndsWithNewline(t *testing.T) {
@@ -532,6 +610,7 @@ func setupDefaultForTest() (*bytes.Buffer, func()) {
 	origPrefixColor := d.prefixColor
 	origMessageColor := d.messageColor
 	origNoColorEnv := d.noColorEnv
+	origExitFunc := d.exitFunc
 
 	var buf bytes.Buffer
 	d.writer = &buf
@@ -543,6 +622,7 @@ func setupDefaultForTest() (*bytes.Buffer, func()) {
 	d.hasPrefix = true
 	d.prefixColor = ColorDefault
 	d.messageColor = ColorDefault
+	d.exitFunc = os.Exit
 
 	cleanup := func() {
 		d.writer = origWriter
@@ -554,6 +634,7 @@ func setupDefaultForTest() (*bytes.Buffer, func()) {
 		d.noColorEnv = origNoColorEnv
 		d.prefixColor = origPrefixColor
 		d.messageColor = origMessageColor
+		d.exitFunc = origExitFunc
 	}
 	return &buf, cleanup
 }
@@ -670,6 +751,38 @@ func TestPackageLevelErrorf(t *testing.T) {
 	Errorf("e: %s", "fail")
 	if !strings.Contains(buf.String(), "e: fail") {
 		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+}
+
+func TestPackageLevelFatal(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	var exitCode int
+	Default().exitFunc = func(code int) { exitCode = code }
+
+	Fatal("pkg fatal")
+	if !strings.Contains(buf.String(), "pkg fatal") {
+		t.Fatalf("expected 'pkg fatal', got %q", buf.String())
+	}
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+}
+
+func TestPackageLevelFatalf(t *testing.T) {
+	buf, cleanup := setupDefaultForTest()
+	defer cleanup()
+
+	var exitCode int
+	Default().exitFunc = func(code int) { exitCode = code }
+
+	Fatalf("fatal: %d", 99)
+	if !strings.Contains(buf.String(), "fatal: 99") {
+		t.Fatalf("expected formatted output, got %q", buf.String())
+	}
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
 	}
 }
 

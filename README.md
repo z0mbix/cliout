@@ -10,7 +10,7 @@ A Go package for printing formatted, coloured output to the command line. Not a 
 
 ## Features
 
-- Levelled output: Trace, Debug, Info, Warn, Error, Success
+- Levelled output: Trace, Debug, Info, Warn, Error, Fatal, Success
 - 32 built-in colour themes (Dracula, Nord, Monokai Pro, Catppuccino, Tokyo Night, and more)
 - Customisable prefix character and colours
 - True colour (24-bit RGB) and standard ANSI colour support
@@ -98,11 +98,16 @@ cliout.Warnf("disk usage: %d%%", 95)
 cliout.Error("message")
 cliout.Errorf("failed to connect: %v", err)
 
+cliout.Fatal("message")
+cliout.Fatalf("failed to connect: %v", err)
+
 cliout.Success("message")
 cliout.Successf("deployed %d services", 3)
 ```
 
 `Success` prints at the Info level but uses the theme's dedicated success colour.
+
+`Fatal` and `Fatalf` print at the Error level (using the theme's error colour) and then call `os.Exit(1)`. The exit always happens, even if the message is suppressed by `LevelSilent`.
 
 ## Prefix Customisation
 
@@ -638,6 +643,7 @@ All configuration methods are available on both `*Output` instances and as packa
 | `Info(msg)` / `Infof(fmt, ...)` | Info | General informational messages |
 | `Warn(msg)` / `Warnf(fmt, ...)` | Warn | Warning messages |
 | `Error(msg)` / `Errorf(fmt, ...)` | Error | Error messages |
+| `Fatal(msg)` / `Fatalf(fmt, ...)` | Error | Error messages that call `os.Exit(1)` after printing |
 | `Success(msg)` / `Successf(fmt, ...)` | Info | Success messages (uses theme's SuccessColor) |
 
 ### Colour Helpers
