@@ -531,11 +531,13 @@ func setupDefaultForTest() (*bytes.Buffer, func()) {
 	origColor := d.colorEnabled
 	origPrefixColor := d.prefixColor
 	origMessageColor := d.messageColor
+	origNoColorEnv := d.noColorEnv
 
 	var buf bytes.Buffer
 	d.writer = &buf
 	d.level = LevelTrace
 	d.colorEnabled = false
+	d.noColorEnv = false
 	d.theme = ThemeDefault
 	d.prefix = defaultPrefix
 	d.hasPrefix = true
@@ -549,6 +551,7 @@ func setupDefaultForTest() (*bytes.Buffer, func()) {
 		d.prefix = origPrefix
 		d.hasPrefix = origHasPrefix
 		d.colorEnabled = origColor
+		d.noColorEnv = origNoColorEnv
 		d.prefixColor = origPrefixColor
 		d.messageColor = origMessageColor
 	}
@@ -998,6 +1001,104 @@ func TestNewCliThemeWithNoColorStillDisablesColor(t *testing.T) {
 	}
 }
 
+// --- CLI_PREFIX environment variable tests ---
+
+func TestNewRespectsCliPrefixEnv(t *testing.T) {
+	t.Setenv("CLI_PREFIX", "->")
+
+	o := New()
+	if o.prefix != "->" {
+		t.Fatalf("expected prefix '->', got %q", o.prefix)
+	}
+	if !o.hasPrefix {
+		t.Fatal("expected hasPrefix to be true")
+	}
+}
+
+func TestNewCliPrefixEnvEmptyClearsPrefix(t *testing.T) {
+	t.Setenv("CLI_PREFIX", "")
+
+	o := New()
+	if o.prefix != "" {
+		t.Fatalf("expected empty prefix, got %q", o.prefix)
+	}
+	if o.hasPrefix {
+		t.Fatal("expected hasPrefix to be false when CLI_PREFIX is empty")
+	}
+}
+
+func TestNewCliPrefixEnvUnsetUsesDefault(t *testing.T) {
+	t.Setenv("CLI_PREFIX", "")
+	os.Unsetenv("CLI_PREFIX") //nolint:errcheck // test cleanup handled by t.Setenv
+
+	o := New()
+	if o.prefix != defaultPrefix {
+		t.Fatalf("expected default prefix %q, got %q", defaultPrefix, o.prefix)
+	}
+	if !o.hasPrefix {
+		t.Fatal("expected hasPrefix to be true")
+	}
+}
+
+func TestNewSetPrefixOverridesCliPrefixEnv(t *testing.T) {
+	t.Setenv("CLI_PREFIX", "->")
+
+	o := New()
+	if o.prefix != "->" {
+		t.Fatalf("expected initial prefix '->', got %q", o.prefix)
+	}
+
+	o.SetPrefix("***")
+	if o.prefix != "***" {
+		t.Fatalf("expected prefix '***' after SetPrefix, got %q", o.prefix)
+	}
+}
+
+func TestNewCliPrefixEnvOutput(t *testing.T) {
+	t.Setenv("CLI_PREFIX", "::")
+
+	o := New()
+	var buf bytes.Buffer
+	o.SetWriter(&buf)
+	o.SetColorEnabled(false)
+	o.SetLevel(LevelTrace)
+	o.Info("hello")
+
+	got := buf.String()
+	if !strings.HasPrefix(got, ":: ") {
+		t.Fatalf("expected output to start with ':: ', got %q", got)
+	}
+}
+
+func TestNewCliPrefixEnvEmptyOutput(t *testing.T) {
+	t.Setenv("CLI_PREFIX", "")
+
+	o := New()
+	var buf bytes.Buffer
+	o.SetWriter(&buf)
+	o.SetColorEnabled(false)
+	o.SetLevel(LevelTrace)
+	o.Info("no prefix")
+
+	got := strings.TrimSpace(buf.String())
+	if got != "no prefix" {
+		t.Fatalf("expected 'no prefix' without any prefix, got %q", got)
+	}
+}
+
+func TestNewCliPrefixWithCliTheme(t *testing.T) {
+	t.Setenv("CLI_PREFIX", "=>")
+	t.Setenv("CLI_THEME", "Dracula")
+
+	o := New()
+	if o.prefix != "=>" {
+		t.Fatalf("expected prefix '=>', got %q", o.prefix)
+	}
+	if o.theme.Name != "Dracula" {
+		t.Fatalf("expected theme 'Dracula', got %q", o.theme.Name)
+	}
+}
+
 func TestNewSetThemeOverridesCliThemeEnv(t *testing.T) {
 	t.Setenv("CLI_THEME", "Dracula")
 
@@ -1009,5 +1110,117 @@ func TestNewSetThemeOverridesCliThemeEnv(t *testing.T) {
 	o.SetTheme(ThemeNord)
 	if o.theme.Name != "Nord" {
 		t.Fatalf("expected theme 'Nord' after SetTheme, got %q", o.theme.Name)
+	}
+}
+
+// --- NO_COLOR enforcement tests ---
+
+func TestSetColorEnabledBlockedByNoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	o := New()
+	if o.colorEnabled {
+		t.Fatal("expected color disabled when NO_COLOR is set")
+	}
+
+	// Attempt to re-enable color — should be blocked.
+	o.SetColorEnabled(true)
+	if o.colorEnabled {
+		t.Fatal("SetColorEnabled(true) must not override NO_COLOR")
+	}
+}
+
+func TestNoColorPreventsAnsiCodesAfterSetColorEnabled(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	o := New()
+	var buf bytes.Buffer
+	o.SetWriter(&buf)
+	o.SetLevel(LevelTrace)
+	o.SetTheme(ThemeDracula)
+
+	// Try to force color on.
+	o.SetColorEnabled(true)
+
+	o.Info("should be plain")
+	got := buf.String()
+	if strings.Contains(got, "\033[") {
+		t.Fatalf("expected no ANSI codes when NO_COLOR is set, got %q", got)
+	}
+}
+
+func TestNoColorBlocksColorizeOutput(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	o := New()
+	o.SetColorEnabled(true) // should be ignored
+
+	got := o.Colorize("text", ColorRed)
+	if strings.Contains(got, "\033[") {
+		t.Fatalf("Colorize must not emit ANSI codes when NO_COLOR is set, got %q", got)
+	}
+	if got != "text" {
+		t.Fatalf("expected plain 'text', got %q", got)
+	}
+}
+
+func TestNoColorEmptyValueStillDisables(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+
+	o := New()
+	o.SetColorEnabled(true)
+
+	if o.colorEnabled {
+		t.Fatal("NO_COLOR with empty value should still disable color")
+	}
+}
+
+func TestNoColorWithThemeAndPrefixProducesPlainOutput(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	t.Setenv("CLI_THEME", "Dracula")
+	t.Setenv("CLI_PREFIX", "::")
+
+	o := New()
+	var buf bytes.Buffer
+	o.SetWriter(&buf)
+	o.SetLevel(LevelTrace)
+
+	// Try every output method.
+	o.Trace("t")
+	o.Debug("d")
+	o.Info("i")
+	o.Warn("w")
+	o.Error("e")
+	o.Success("s")
+	o.Infof("f %d", 1)
+
+	got := buf.String()
+	if strings.Contains(got, "\033[") {
+		t.Fatalf("expected no ANSI codes anywhere in output when NO_COLOR is set, got %q", got)
+	}
+	// Verify prefix is still applied.
+	if !strings.Contains(got, ":: i") {
+		t.Fatalf("expected CLI_PREFIX '::' in output, got %q", got)
+	}
+}
+
+func TestSetColorEnabledWorksWithoutNoColor(t *testing.T) {
+	// Verify that SetColorEnabled still works normally when NO_COLOR is not set.
+	o, buf := newTestOutput()
+	o.SetTheme(ThemeDracula)
+
+	o.SetColorEnabled(true)
+	o.Info("colored")
+	got := buf.String()
+	if !strings.Contains(got, "\033[") {
+		t.Fatalf("expected ANSI codes when color is enabled and NO_COLOR is not set, got %q", got)
+	}
+
+	buf.Reset()
+	o.SetColorEnabled(false)
+	o.Info("plain")
+	got = buf.String()
+	if strings.Contains(got, "\033[") {
+		t.Fatalf("expected no ANSI codes after disabling color, got %q", got)
 	}
 }

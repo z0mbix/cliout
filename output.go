@@ -18,12 +18,13 @@ type Output struct {
 	messageColor Color
 	theme        Theme
 	colorEnabled bool
+	noColorEnv   bool // true when NO_COLOR was detected at construction time
 }
 
 // New creates an Output with sensible defaults:
 //   - Writer: os.Stdout
 //   - Level: LevelInfo
-//   - Prefix: "»"
+//   - Prefix: "»" (or the value of the CLI_PREFIX environment variable)
 //   - Theme: ThemeDefault (or the theme named by the CLI_THEME environment variable)
 //   - Color: auto-detected (disabled if NO_COLOR is set or stdout is not a TTY)
 func New() *Output {
@@ -34,11 +35,20 @@ func New() *Output {
 		}
 	}
 
+	prefix := defaultPrefix
+	hasPrefix := true
+	if v, ok := os.LookupEnv("CLI_PREFIX"); ok {
+		prefix = v
+		if v == "" {
+			hasPrefix = false
+		}
+	}
+
 	o := &Output{
 		writer:       os.Stdout,
 		level:        LevelInfo,
-		prefix:       defaultPrefix,
-		hasPrefix:    true,
+		prefix:       prefix,
+		hasPrefix:    hasPrefix,
 		theme:        theme,
 		colorEnabled: true,
 	}
@@ -47,6 +57,7 @@ func New() *Output {
 	// See https://no-color.org/
 	if _, ok := os.LookupEnv("NO_COLOR"); ok {
 		o.colorEnabled = false
+		o.noColorEnv = true
 	}
 
 	// Disable color if stdout is not a terminal.
@@ -109,7 +120,13 @@ func (o *Output) SetWriter(w io.Writer) {
 }
 
 // SetColorEnabled explicitly enables or disables color output.
+// If the NO_COLOR environment variable was set when this Output was created,
+// color remains disabled regardless of the value passed here.
+// See https://no-color.org/
 func (o *Output) SetColorEnabled(enabled bool) {
+	if o.noColorEnv {
+		return
+	}
 	o.colorEnabled = enabled
 }
 

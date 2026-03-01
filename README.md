@@ -14,7 +14,7 @@ A Go package for printing formatted, coloured output to the command line. Not a 
 - 32 built-in colour themes (Dracula, Nord, Monokai Pro, Catppuccino, Tokyo Night, and more)
 - Customisable prefix character and colours
 - True colour (24-bit RGB) and standard ANSI colour support
-- Respects [`NO_COLOR`](https://no-color.org/) and `CLI_THEME` environment variables, auto-detects TTY
+- Respects [`NO_COLOR`](https://no-color.org/), `CLI_THEME`, and `CLI_PREFIX` environment variables, auto-detects TTY
 - Format string variants (`Infof`, `Debugf`, etc.)
 - Zero external dependencies
 - Go 1.20+
@@ -134,6 +134,33 @@ Output:
 * using asterisk prefix
 [myapp] using app name prefix
 ```
+
+### Prefix Character Ideas
+
+Here are some characters that work well as CLI prefixes:
+
+| Character | Name | Unicode |
+|---|---|---|
+| `»` | right double angle (default) | U+00BB |
+| `→` | right arrow | U+2192 |
+| `▸` | small right triangle | U+25B8 |
+| `▶` | right triangle | U+25B6 |
+| `⟩` | angle bracket | U+27E9 |
+| `➜` | heavy right arrow | U+279C |
+| `•` | bullet | U+2022 |
+| `●` | black circle | U+25CF |
+| `◆` | black diamond | U+25C6 |
+| `■` | black square | U+25A0 |
+| `★` | black star | U+2605 |
+| `⚡` | high voltage | U+26A1 |
+| `⊙` | circled dot | U+2299 |
+| `λ` | lambda | U+03BB |
+| `∷` | proportion | U+2237 |
+| `::` | double colon | ASCII |
+| `->` | arrow | ASCII |
+| `>>` | chevrons | ASCII |
+| `~` | tilde | ASCII |
+| `#` | hash | ASCII |
 
 ### No Prefix
 
@@ -259,6 +286,28 @@ If `CLI_THEME` is unset, empty, or doesn't match a built-in theme, the Default t
 
 ```sh
 CLI_THEME=dracula NO_COLOR=1 ./mytool   # Dracula theme colours, but no ANSI codes emitted
+```
+
+### `CLI_PREFIX` Environment Variable
+
+Users can set the `CLI_PREFIX` environment variable to override the default prefix character across all tools that use cliout:
+
+```sh
+export CLI_PREFIX="->"
+```
+
+Any tool using cliout will now use `->` as its prefix instead of the default `»`. Setting `CLI_PREFIX` to an empty string clears the prefix entirely (equivalent to calling `ClearPrefix()`):
+
+```sh
+export CLI_PREFIX=""   # no prefix at all
+```
+
+If `CLI_PREFIX` is unset, the default prefix `»` is used. `SetPrefix()` and `ClearPrefix()` still override `CLI_PREFIX` if the application needs to.
+
+`CLI_PREFIX` and `CLI_THEME` work together:
+
+```sh
+CLI_THEME=dracula CLI_PREFIX="::" ./mytool   # Dracula theme with :: prefix
 ```
 
 ### Multi-Colour Lines
@@ -603,6 +652,7 @@ All configuration methods are available on both `*Output` instances and as packa
 |---|---|
 | `NO_COLOR` | Disable all colour output when set (any value). See [no-color.org](https://no-color.org/) |
 | `CLI_THEME` | Set the default theme by name (case-insensitive). Ignored if unset, empty, or unrecognised |
+| `CLI_PREFIX` | Set the default prefix string. Empty string clears the prefix. Ignored if unset |
 
 ## License
 
