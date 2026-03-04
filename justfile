@@ -38,5 +38,9 @@ fmt:
 vet:
     go vet ./...
 
+# generate screenshots for all examples (requires vhs: https://github.com/charmbracelet/vhs)
+screenshots:
+    find examples -name '*.tape' -print0 | sort -z | xargs -0 -I{} vhs {}
+
 # run all checks (fmt, vet, lint, test)
 check: fmt vet lint test
