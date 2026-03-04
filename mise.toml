@@ -1,3 +1,4 @@
 [tools]
 go = "1.26.0"
 golangci-lint = "2.8.0"
+"ubi:charmbracelet/vhs" = "latest"

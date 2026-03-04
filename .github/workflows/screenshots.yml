@@ -1,0 +1,48 @@
+name: Screenshots
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.go'
+      - 'examples/**/*.go'
+      - 'examples/**/*.tape'
+  pull_request:
+    paths:
+      - '*.go'
+      - 'examples/**/*.go'
+      - 'examples/**/*.tape'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Pre-build examples
+        run: go build ./examples/...
+
+      - uses: charmbracelet/vhs-action@v2
+        with:
+          path: 'examples/**/*.tape'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: 'examples/**/*.gif'
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          commit_message: 'chore: update example screenshots [skip ci]'
+          file_pattern: 'examples/**/*.gif'
