@@ -28,12 +28,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install vhs dependencies
+        run: sudo apt-get update -q && sudo apt-get install -y ffmpeg ttyd
+
+      - name: Install vhs
+        run: go install github.com/charmbracelet/vhs@latest
+
       - name: Pre-build examples
         run: go build ./examples/...
 
-      - uses: charmbracelet/vhs-action@v2
-        with:
-          path: 'examples/**/*.tape'
+      - name: Generate screenshots
+        run: find examples -name '*.tape' -print0 | sort -z | xargs -0 -I{} vhs {}
 
       - uses: actions/upload-artifact@v4
         if: always()
